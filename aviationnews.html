@@ -1,103 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Aviation News Finder (Live, with Proxy)</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: system-ui, Arial, sans-serif; background: #f6f9fa; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 2rem auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px #0001; padding: 1.5rem; }
-        h1 { text-align: center; color: #124175; font-size: 2rem; }
-        form { display: flex; margin-bottom: 1.5rem; }
-        input[type="text"] { flex: 1; padding: 0.5rem; font-size: 1rem; border: 1px solid #cbd5e1; border-radius: 4px 0 0 4px; outline: none; }
-        button { background: #1d4ed8; color: white; border: none; border-radius: 0 4px 4px 0; padding: 0 1.2rem; cursor: pointer; font-size: 1rem; }
-        button:hover { background: #2563eb; }
-        ul { list-style: none; padding: 0; margin: 0; }
-        li { background: #f3f4f6; border-radius: 6px; margin-bottom: 1rem; padding: 1rem; transition: box-shadow 0.2s; }
-        li:hover { box-shadow: 0 1px 4px #0002; }
-        .title { font-weight: bold; color: #0d172a; font-size: 1.1rem; }
-        .desc { color: #374151; margin-top: 0.2em; }
-        .source { font-size: 0.9em; color: #475569; margin-top: 0.5em; }
-        .img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 4px; background: #e5e7eb; display: block; margin: 0 auto 0.5em auto;}
-        @media (max-width: 600px) {
-            .container { margin: 1rem; padding: 1rem; }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Search Aviation News</h1>
-        <form id="search-form">
-            <input type="text" id="search" placeholder="Enter keyword (e.g. Boeing, drone)...">
-            <button type="submit">Search</button>
-        </form>
-        <ul id="news-list">
-            <li>Loading latest aviation news...</li>
-        </ul>
-        <div style="font-size:0.92em;color:#6b7280;margin-top:1.5em;border-top:1px solid #e5e7eb;padding-top:0.7em;">
-          <strong>Note:</strong> This demo uses a public CORS proxy for browser access. For production or sensitive APIs, use server-side code.
-        </div>
-    </div>
-    <script>
-        const API_KEY = "44b9bc8e12bdb493f55dba6f025f6558";
-        const BASE_URL = "https://gnews.io/api/v4/search";
-        const DEFAULT_QUERY = "aviation";
-        const RESULTS_LIMIT = 10;
+// Install first: npm install @google-cloud/text-to-speech fs util
+const textToSpeech = require('@google-cloud/text-to-speech');
+const fs = require('fs');
+const util = require('util');
+const client = new textToSpeech.TextToSpeechClient();
 
-        async function fetchNews(query) {
-            const actualGnewsUrl = `${BASE_URL}?q=${encodeURIComponent(query)}&lang=en&max=${RESULTS_LIMIT}&token=${API_KEY}`;
-            // Using a public CORS proxy for testing/development.
-            const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(actualGnewsUrl)}`;
-            try {
-                const res = await fetch(proxiedUrl);
-                if (!res.ok) throw new Error("Network error");
-                const data = await res.json();
-                return data.articles || [];
-            } catch (err) {
-                return null;
-            }
-        }
-
-        function renderNews(news) {
-            const list = document.getElementById('news-list');
-            list.innerHTML = "";
-            if (news === null) {
-                list.innerHTML = "<li>Could not load news. Please try again later.</li>";
-                return;
-            }
-            if (news.length === 0) {
-                list.innerHTML = "<li>No aviation news found for your search.</li>";
-            } else {
-                news.forEach(item => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `
-                        ${item.image ? `<img class="img" src="${item.image}" alt="News Image">` : ""}
-                        <div class="title"><a href="${item.url}" target="_blank" rel="noopener">${item.title}</a></div>
-                        <div class="desc">${item.description || ""}</div>
-                        <div class="source">Source: ${item.source && item.source.name ? item.source.name : "Unknown"}</div>
-                        <div class="source" style="font-size:0.85em;color:#64748b;">
-                          ${item.publishedAt ? '🕒 ' + new Date(item.publishedAt).toLocaleString() : ""}
-                        </div>
-                    `;
-                    list.appendChild(li);
-                });
-            }
-        }
-
-        async function showLatestNews(query) {
-            renderNews([{title: 'Loading...', description: '', url: '#'}]);
-            const news = await fetchNews(query);
-            renderNews(news);
-        }
-
-        document.getElementById('search-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const keyword = document.getElementById('search').value.trim();
-            showLatestNews(keyword ? `aviation ${keyword}` : DEFAULT_QUERY);
-        });
-
-        // On first load, show aviation news
-        showLatestNews(DEFAULT_QUERY);
-    </script>
-</body>
-</html>
+async function synthesizeCantoneseDate(dateString) {
+    const request = {
+        input: {text: dateString},
+        voice: {languageCode: 'yue-HK', name: 'yue-HK-Standard-A'},
+        audioConfig: {audioEncoding: 'MP3'}
+    };
+    const [response] = await client.synthesizeSpeech(request);
+    await util.promisify(fs.writeFile)('date-cantonese.mp3', response.audioContent, 'binary');
+    console.log('Audio content written to file: date-cantonese.mp3');
+}
+synthesizeCantoneseDate('今日係二零二四年三月十四日。');
