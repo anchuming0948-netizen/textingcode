@@ -1,17 +1,95 @@
-// Install first: npm install @google-cloud/text-to-speech fs util
-const textToSpeech = require('@google-cloud/text-to-speech');
-const fs = require('fs');
-const util = require('util');
-const client = new textToSpeech.TextToSpeechClient();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aviation News Finder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: system-ui, Arial, sans-serif; background: #f6f9fa; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 2rem auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px #0001; padding: 1.5rem; }
+        h1 { text-align: center; color: #124175; font-size: 2rem; }
+        form { display: flex; margin-bottom: 1.5rem; }
+        input[type="text"] { flex: 1; padding: 0.5rem; font-size: 1rem; border: 1px solid #cbd5e1; border-radius: 4px 0 0 4px; outline: none; }
+        button { background: #1d4ed8; color: white; border: none; border-radius: 0 4px 4px 0; padding: 0 1.2rem; cursor: pointer; font-size: 1rem; }
+        button:hover { background: #2563eb; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { background: #f3f4f6; border-radius: 6px; margin-bottom: 1rem; padding: 1rem; transition: box-shadow 0.2s; }
+        li:hover { box-shadow: 0 1px 4px #0002; }
+        .title { font-weight: bold; color: #0d172a; font-size: 1.1rem; }
+        .desc { color: #374151; margin-top: 0.2em; }
+        .source { font-size: 0.9em; color: #475569; margin-top: 0.5em; }
+        .loading, .error { text-align: center; margin: 1.5rem 0; color: #dc2626; }
+        @media (max-width: 600px) {
+            .container { margin: 1rem; padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Search Aviation News</h1>
+        <form id="search-form">
+            <input type="text" id="search" placeholder="Enter aviation keyword..." autocomplete="off">
+            <button type="submit">Search</button>
+        </form>
+        <div id="status"></div>
+        <ul id="news-list"></ul>
+    </div>
+    <script>
+        const apiKey = "3e28de4ea1fc400dbb6df28d79a34e4b";
+        const newsList = document.getElementById('news-list');
+        const statusDiv = document.getElementById('status');
 
-async function synthesizeCantoneseDate(dateString) {
-    const request = {
-        input: {text: dateString},
-        voice: {languageCode: 'yue-HK', name: 'yue-HK-Standard-A'},
-        audioConfig: {audioEncoding: 'MP3'}
-    };
-    const [response] = await client.synthesizeSpeech(request);
-    await util.promisify(fs.writeFile)('date-cantonese.mp3', response.audioContent, 'binary');
-    console.log('Audio content written to file: date-cantonese.mp3');
-}
-synthesizeCantoneseDate('今日係二零二四年三月十四日。');
+        // Fetch headlines on load with "aviation" as a keyword
+        fetchNews("aviation");
+
+        document.getElementById('search-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const keyword = document.getElementById('search').value.trim();
+            fetchNews(keyword || "aviation");
+        });
+
+        function renderNews(news) {
+            newsList.innerHTML = "";
+            if (news.length === 0) {
+                newsList.innerHTML = "<li>No results found for your search.</li>";
+            } else {
+                news.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <div class="title"><a href="${item.url}" target="_blank" rel="noopener">${item.title}</a></div>
+                        <div class="desc">${item.description ? item.description : ""}</div>
+                        <div class="source">Source: ${item.source && item.source.name ? item.source.name : "unknown"}</div>
+                    `;
+                    newsList.appendChild(li);
+                });
+            }
+        }
+
+        function setStatus(text, isError) {
+            statusDiv.textContent = text;
+            statusDiv.className = isError ? 'error' : 'loading';
+        }
+
+        function fetchNews(keyword) {
+            setStatus("Loading...", false);
+            newsList.innerHTML = "";
+
+            fetch(`https://newsapi.org/v2/everything?q=${encodeURIComponent(keyword)}&sortBy=publishedAt&pageSize=10&language=en&apiKey=${apiKey}`)
+                .then(response => response.json())
+                .then(data => {
+                    setStatus("", false);
+                    if (data.status !== "ok") {
+                        setStatus("Error loading news: " + (data.message || "Unknown error."), true);
+                        renderNews([]);
+                        return;
+                    }
+                    renderNews(data.articles);
+                })
+                .catch(err => {
+                    setStatus("Network error (may be due to browser CORS). Try this code on a local server for full functionality.", true);
+                    renderNews([]);
+                });
+        }
+    </script>
+</body>
+</html>
