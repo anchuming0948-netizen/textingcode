@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cantonese Speech to Text - Manual & Upload</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css">
+    <style>body { background: #f7fafc; }</style>
+</head>
+<body>
+<div class="min-h-screen flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+        <h1 class="text-2xl font-bold mb-2 text-center">廣東話語音轉文字（錄音＋上載）</h1>
+        <p class="mb-4 text-center text-gray-600">
+            點擊「開始錄音」持續說廣東話，完成後點「停止錄音」。<br>
+            或者上載一段錄音檔由麥克風自動轉文字。<br>
+            <span class="text-sm text-yellow-600">上載檔案時請確保收音咪能錄到喇叭聲。</span>
+        </p>
+        <div class="flex flex-col sm:flex-row sm:space-x-2 mb-4">
+            <input id="uploadInput" type="file" accept="audio/*" class="mb-2 sm:mb-0 flex-1 block border px-2 py-1 rounded">
+            <button id="recordBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-800 focus:outline-none transition">
+                ▶️ 開始錄音
+            </button>
+            <button id="clearBtn" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-red-600 hover:bg-opacity-80 hover:text-white ml-0 sm:ml-2 mt-2 sm:mt-0">
+                🧹 清除內容
+            </button>
+        </div>
+        <div>
+            <label class="block font-semibold mb-1">辨識結果：</label>
+            <textarea id="result" class="w-full p-2 border rounded h-32 resize-none" readonly></textarea>
+        </div>
+        <audio id="player" class="w-full mt-4" controls style="display: none"></audio>
+        <p id="errorMsg" class="text-red-600 mt-3 text-center hidden"></p>
+        <p class="text-xs text-gray-500 mt-3 text-center">注意：上載檔案會用麥克風方式「假裝」錄音以進行辨識，效果受裝置/環境影響。</p>
+    </div>
+</div>
+<script>
+window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recordBtn = document.getElementById('recordBtn');
+const uploadInput = document.getElementById('uploadInput');
+const clearBtn = document.getElementById('clearBtn');
+const resultBox = document.getElementById('result');
+const errorMsg = document.getElementById('errorMsg');
+const player = document.getElementById('player');
+
+let recognition;
+let recording = false;
+let allText = '';
+let uploadMode = false;
+let isFilePlaying = false;
+let interimText = '';
+
+if (!window.SpeechRecognition) {
+    errorMsg.textContent = '抱歉，您的瀏覽器不支援語音識別功能。請使用最新版 Google Chrome。';
+    errorMsg.classList.remove('hidden');
+    recordBtn.disabled = true;
+    uploadInput.disabled = true;
+} else {
+    recognition = new window.SpeechRecognition();
+    recognition.lang = 'zh-HK'; // Cantonese
+    recognition.interimResults = true; // show live transcription
+    recognition.continuous = true; // manual stop
+
+    recognition.onstart = () => {
+        recording = true;
+        recordBtn.textContent = '⏹️ 停止錄音';
+        errorMsg.classList.add('hidden');
+        interimText = '';
+        if (!uploadMode) interimText = '';
+    };
+
+    recognition.onend = () => {
+        recording = false;
+        recordBtn.textContent = '▶️ 開始錄音';
+        if (uploadMode) {
+            isFilePlaying = false;
+            uploadMode = false;
+        }
+    };
+
+    recognition.onerror = event => {
+        errorMsg.textContent = '語音識別失敗，請再試一次。\n' + (event.error || '');
+        errorMsg.classList.remove('hidden');
+        recording = false;
+        recordBtn.textContent = '▶️ 開始錄音';
+        if (uploadMode) {
+            isFilePlaying = false;
+            uploadMode = false;
+        }
+    };
+
+    recognition.onresult = event => {
+        let newText = '', inter = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                newText += transcript;
+            } else {
+                inter += transcript;
+            }
+        }
+        if (newText) {
+            allText += newText;
+            interimText = '';
+        }
+        interimText = inter;
+        resultBox.value = allText + interimText;
+    };
+
+    recordBtn.onclick = () => {
+        if (recording) {
+            recognition.stop();
+        } else {
+            uploadMode = false;
+            try {
+                recognition.start();
+            } catch (e) {}
+        }
+    };
+
+    uploadInput.onchange = async (e) => {
+        const file = uploadInput.files[0];
+        if (!file) return;
+        if (recording) {
+            recognition.stop();
+        }
+        uploadMode = true;
+
+        // Load the audio file into a player and play (so mic can pick up via speakers)
+        player.src = URL.createObjectURL(file);
+        player.currentTime = 0;
+        player.style.display = '';
+        player.onended = () => {
+            if (recording) recognition.stop();
+            isFilePlaying = false;
+        };
+
+        player.oncanplaythrough = () => {
+            // Start recognition, then play audio
+            try {
+                recognition.start();
+                isFilePlaying = true;
+                player.play();
+            } catch (e) {}
+        };
+    };
+
+    clearBtn.onclick = () => {
+        allText = '';
+        interimText = '';
+        resultBox.value = '';
+    };
+}
+</script>
+</body>
+</html>
