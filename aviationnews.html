@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Aviation News Finder (Live)</title>
+    <title>Aviation News Finder (Live, with Proxy)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: system-ui, Arial, sans-serif; background: #f6f9fa; margin: 0; padding: 0; }
@@ -34,19 +34,22 @@
         <ul id="news-list">
             <li>Loading latest aviation news...</li>
         </ul>
+        <div style="font-size:0.92em;color:#6b7280;margin-top:1.5em;border-top:1px solid #e5e7eb;padding-top:0.7em;">
+          <strong>Note:</strong> This demo uses a public CORS proxy for browser access. For production or sensitive APIs, use server-side code.
+        </div>
     </div>
     <script>
-        // Use your API key!
         const API_KEY = "44b9bc8e12bdb493f55dba6f025f6558";
         const BASE_URL = "https://gnews.io/api/v4/search";
         const DEFAULT_QUERY = "aviation";
         const RESULTS_LIMIT = 10;
 
         async function fetchNews(query) {
-            // GNews documentation: https://gnews.io/docs/
-            const url = `${BASE_URL}?q=${encodeURIComponent(query)}&lang=en&max=${RESULTS_LIMIT}&token=${API_KEY}`;
+            const actualGnewsUrl = `${BASE_URL}?q=${encodeURIComponent(query)}&lang=en&max=${RESULTS_LIMIT}&token=${API_KEY}`;
+            // Using a public CORS proxy for testing/development.
+            const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(actualGnewsUrl)}`;
             try {
-                const res = await fetch(url);
+                const res = await fetch(proxiedUrl);
                 if (!res.ok) throw new Error("Network error");
                 const data = await res.json();
                 return data.articles || [];
@@ -95,7 +98,6 @@
 
         // On first load, show aviation news
         showLatestNews(DEFAULT_QUERY);
-
     </script>
 </body>
 </html>
